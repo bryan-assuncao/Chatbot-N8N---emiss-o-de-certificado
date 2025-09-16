@@ -1,0 +1,318 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -128,
+        -64
+      ],
+      "id": "30aa7c23-2c74-4389-9d67-478bb316263c",
+      "name": "Webhook",
+      "webhookId": "e287b801-9536-41f5-8742-0f415af35b18"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "={{ $('Dados').item.json.session }}",
+        "chatId": "={{ $('Dados').item.json.chatId }}",
+        "text": "={{ $('AI Agent').item.json.output }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        1088,
+        -64
+      ],
+      "id": "55db2c1d-1b43-45b1-ad4d-faa355981d67",
+      "name": "Send a text message",
+      "credentials": {
+        "wahaApi": {
+          "id": "xMtmMDWggYA5yRJk",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Seen",
+        "session": "={{ $('Dados').item.json.session }}",
+        "chatId": "={{ $('Dados').item.json.chatId }}",
+        "messageId": "={{ $('Dados').item.json.payload_id }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        848,
+        -64
+      ],
+      "id": "0e5a5e10-0fb3-4449-a0dc-380821645106",
+      "name": "Send Seen",
+      "credentials": {
+        "wahaApi": {
+          "id": "xMtmMDWggYA5yRJk",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Dados').item.json.chatId }}",
+        "sessionTTL": 3600,
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        592,
+        192
+      ],
+      "id": "c968f493-dbb4-4f87-bf2b-88fb87b0f42f",
+      "name": "Redis Chat Memory",
+      "credentials": {
+        "redis": {
+          "id": "Vm8Ea1LLz4ubProp",
+          "name": "Redis account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        384,
+        192
+      ],
+      "id": "688809d7-049d-4403-90ff-024172a58cc6",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "nEqer0A1a2G5zkq0",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "Você é um **chatbot de WhatsApp especializado em emissão de Certificado Digital**.\nSua missão é **guiar o cliente passo a passo**, seguindo exatamente o fluxo abaixo, **sem pular etapas, sem inventar informações e sem aceitar respostas fora do esperado**.\n\nSempre valide a entrada do usuário antes de prosseguir.\nSe o cliente errar, repita a instrução da etapa atual até que uma resposta válida seja fornecida.\n\n---\n\n### 🔸 Fluxo de Conversa\n\n#### 1. Início da Conversa\n\n* Se o usuário enviar uma saudação como: **\"oi\", \"olá\", \"ola\", \"bom dia\", \"boa tarde\", \"boa noite\"** → responda:\n\n  ```\n  Olá, prazer em vê-lo💙😁! Qual produto você deseja comprar:\n\n  1. e-CPF\n  2. e-CNPJ\n  ```\n* Aguarde a escolha (não avance sem resposta válida).\n\n---\n\n#### 2. Escolha do Produto\n\n* Se o cliente responder **1** → selecione **e-CPF**.\n* Se responder **2** → selecione **e-CNPJ**.\n* Caso contrário → responda:\n\n  ```\n  Opção inválida. Por favor, escolha:\n  1. e-CPF\n  2. e-CNPJ\n  ```\n* Após resposta válida, pergunte:\n\n  ```\n  Certo! E qual a validade do seu produto (e-CPF/e-CNPJ)? ⏳\n\n  1. 4 meses\n  2. 1 ano\n  3. 2 anos\n  4. 3 anos\n  ```\n\n---\n\n#### 3. Escolha da Validade\n\n* Se resposta ∈ {1,2,3,4} → armazene e pergunte:\n\n  ```\n  Entendido. E qual o tipo de certificado?\n\n  1. A1 (Arquivo)\n  2. A3 (Sem mídia)\n  ```\n* Caso contrário → peça novamente um número entre **1 e 4**.\n\n---\n\n#### 4. Escolha do Tipo de Certificado\n\n* Se resposta = **1** → tipo = A1.\n* Se resposta = **2** → tipo = A3.\n* Caso contrário → peça novamente.\n* Após escolha válida → informe:\n\n  ```\n  Ótimo! Antes de gerar o pagamento, precisamos de alguns dados para o cadastro.📋\n  ```\n\n  * Se produto = **e-CNPJ** → peça o **CNPJ da empresa**.\n  * Se produto = **e-CPF** → peça o **CPF**.\n\n---\n\n#### 5. Coleta de Informações (Formulário)\n\nO agente deve coletar e confirmar os seguintes dados em ordem:\n\n1. **CNPJ** → responda automaticamente:\n\n   ```\n   Razão Social: Safeweb Segurança da Informação Ltda.\n   ```\n\n   → depois peça o **CPF do representante legal**.\n\n2. **CPF**.\n\n3. **Data de nascimento** → responda automaticamente:\n\n   ```\n   Certo, CPF no nome de: Bryan Conceição de Assunção.\n   ```\n\n   → depois peça o **e-mail**.\n\n4. **E-mail**.\n\n5. **Telefone com DDD**.\n\n6. **CEP** → responda automaticamente:\n\n   ```\n   Rua: Princesa Isabel\n   Bairro: Santana\n   Cidade: Porto Alegre\n   Estado: Rio Grande do Sul\n   ```\n\n   → depois peça o **número do endereço**.\n\n7. **Número do endereço**.\n\nApós coletar todos os dados → confirme com o cliente se está tudo correto antes de prosseguir.\n\n---\n\n#### 6. Encerramento do Formulário e Pagamento\n\n* Confirme:\n\n  ```\n  Obrigado! Cadastro preenchido.\n  O valor total é de R$ 185,00.\n  Segue o código PIX para pagamento:\n  ```\n\n  (usar código fictício).\n* Inicie a simulação de pagamento.\n\n---\n\n#### 7. Simulação de Pagamento e Validação\n\n1. Após **10s** → confirme:\n\n   ```\n   O pagamento foi efetuado! ✅\n   ```\n2. Envie link para upload de documentos.\n3. Após **4s** → informe:\n\n   ```\n   Seus documentos estão sendo validados... ⏳\n   ```\n4. Após mais **4s** → confirme:\n\n   ```\n   Pronto, documentos validados! 📄 Segue o link para realização da vídeo conferência:\n   ```\n5. Após mais **10s** → finalize:\n\n   ```\n   Parabéns! Seu certificado foi emitido com sucesso! 🎉\n   ```\n6. Encerre o atendimento e apague os dados do usuário.\n\n---\n\n### 🔸 Regras de Tratamento de Erros\n\n* Se o usuário digitar algo inesperado → responda:\n\n  ```\n  Não entendi sua resposta. Por favor, siga as instruções acima.\n  ```\n* Se insistir em respostas inválidas → oriente a reiniciar:\n\n  ```\n  Digite \"Olá\" para recomeçar o atendimento.\n  ```\n\n---"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        -64
+      ],
+      "id": "2b09ddf2-1f89-4fce-a9d0-927cac4e7a3b",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "message",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e102c677-431c-43ef-a5e1-277817d49902"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        288,
+        -64
+      ],
+      "id": "0280fcf7-6c2e-410b-9027-35bc6ec703a4",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "08ffea6a-1f4a-4a64-aeb5-ac950e35ad61",
+              "name": "session",
+              "value": "={{ $json.body.session }}",
+              "type": "string"
+            },
+            {
+              "id": "2d9fffdc-08fe-4ad5-a8d8-b65d4376acba",
+              "name": "chatId",
+              "value": "={{ $json.body.payload.from }}",
+              "type": "string"
+            },
+            {
+              "id": "ddac18db-3cd7-49a8-a1d1-371046bfda5b",
+              "name": "pushName",
+              "value": "={{ $json.body.payload._data.Info.PushName }}",
+              "type": "string"
+            },
+            {
+              "id": "d4c3378e-d1d6-43fa-8523-a566918ea5a1",
+              "name": "payload_id",
+              "value": "={{ $json.body.payload.id }}",
+              "type": "string"
+            },
+            {
+              "id": "a478f7eb-fb08-411f-9156-097e4a6ad08d",
+              "name": "event",
+              "value": "={{ $json.body.event }}",
+              "type": "string"
+            },
+            {
+              "id": "47102e08-473d-4219-83e5-6717f4a41a12",
+              "name": "message",
+              "value": "={{ $json.body.payload.body }}",
+              "type": "string"
+            },
+            {
+              "id": "6aa45104-05bb-46c7-96cc-7561b18ea398",
+              "name": "fromMe",
+              "value": "={{ $json.body.payload.fromMe }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        80,
+        -64
+      ],
+      "id": "aececd49-7e97-4dfc-a311-0a4d0a07aaff",
+      "name": "Dados"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Seen": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Seen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fdb3c9cb-c22c-4341-85bd-29ffd6110967",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "27ef5bace964d254dbceba6311e9b023bd4ddf2db2656af1b256c30ba81df9e8"
+  },
+  "id": "onZoQ6Ry675Za2Oq",
+  "tags": []
+}
